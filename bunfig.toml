@@ -1,2 +1,5 @@
+[serve]
+port = 5173
+
 [serve.static]
 plugins = ["bun-plugin-tailwind"]

@@ -1,10 +1,17 @@
+import { useState } from "react";
+import { StackSidebar } from "./components/StackSidebar";
+import { DiffView } from "./components/DiffView";
+import { CommentsPanel } from "./components/CommentsPanel";
+
 function App() {
+  const [selectedFile, setSelectedFile] = useState("src/auth/session.ts");
+  const [activeTab, setActiveTab] = useState<"comments" | "claude">("comments");
+
   return (
-    <div className="flex h-screen items-center justify-center bg-gray-900 text-white">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold">Pancake</h1>
-        <p className="mt-2 text-gray-400">Graphite Code Review UI</p>
-      </div>
+    <div className="flex h-screen bg-[#141414]">
+      <StackSidebar selectedFile={selectedFile} onFileSelect={setSelectedFile} />
+      <DiffView selectedFile={selectedFile} />
+      <CommentsPanel activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 }
