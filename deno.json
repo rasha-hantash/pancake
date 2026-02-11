@@ -1,0 +1,13 @@
+{
+  "tasks": {
+    "dev": "deno run -A npm:vite dev",
+    "build": "deno run -A npm:vite build",
+    "preview": "deno run -A npm:vite preview",
+    "tauri": "cargo tauri dev",
+    "tauri:build": "cargo tauri build"
+  },
+  "nodeModulesDir": "auto",
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"]
+  }
+}
