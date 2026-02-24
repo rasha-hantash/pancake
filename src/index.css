@@ -1,8 +1,22 @@
 @import "tailwindcss";
 
+@theme {
+  --color-bg: #0a0a0f;
+  --color-surface: #12121a;
+  --color-surface-hover: #1a1a25;
+  --color-border: #2a2a3a;
+  --color-text: #e4e4ef;
+  --color-text-muted: #8888a0;
+  --color-accent: #6366f1;
+  --color-accent-hover: #818cf8;
+  --color-danger: #ef4444;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+}
+
 * {
   scrollbar-width: thin;
-  scrollbar-color: #333 transparent;
+  scrollbar-color: #2a2a3a transparent;
 }
 
 *::-webkit-scrollbar {
@@ -14,26 +28,13 @@
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: #333;
+  background-color: #2a2a3a;
   border-radius: 3px;
 }
 
 body {
   margin: 0;
-  background: #141414;
-  color: #e0e0e0;
+  background: #0a0a0f;
+  color: #e4e4ef;
   -webkit-font-smoothing: antialiased;
 }
-
-.hljs-keyword { color: #c678dd; }
-.hljs-string { color: #98c379; }
-.hljs-number { color: #d19a66; }
-.hljs-built_in { color: #e6c07b; }
-.hljs-type { color: #e6c07b; }
-.hljs-title { color: #61afef; }
-.hljs-params { color: #e0e0e0; }
-.hljs-comment { color: #5c6370; font-style: italic; }
-.hljs-attr { color: #d19a66; }
-.hljs-literal { color: #d19a66; }
-.hljs-punctuation { color: #abb2bf; }
-.hljs-property { color: #e06c75; }

@@ -10,7 +10,6 @@ bun run dev              # Start frontend dev server on :5173
 bun run tauri dev        # Launch Tauri desktop app (starts dev server + Rust backend)
 bun run tauri build      # Production build (.app bundle)
 bun run build            # Frontend-only production build (type-check + bundle to dist/)
-bun run lint             # ESLint
 ```
 
 ## Architecture

@@ -1,239 +1,165 @@
-export interface StackBranch {
-  name: string;
-  prTitle: string;
-  prNumber: number;
-  status: "current" | "default";
-}
+import type { LogEntry, DiffResult, Comment } from "../api/types";
 
-export interface ChangedFile {
-  path: string;
-  additions: number;
-  deletions: number;
-}
-
-export interface DiffLine {
-  lineNumber: number | null;
-  content: string;
-  type: "added" | "removed" | "context" | "hunk-header";
-}
-
-export interface DiffHunk {
-  header: string;
-  lines: DiffLine[];
-}
-
-export interface DiffFile {
-  path: string;
-  status: "added" | "modified";
-  hunks: DiffHunk[];
-}
-
-export interface Comment {
-  id: string;
-  author: string;
-  file: string;
-  lineRange: [number, number];
-  body: string;
-  date: string;
-  status: "pending" | "resolved";
-  fixedByClaudeSuggestion?: {
-    before: string;
-    after: string;
-  };
-}
-
-export const stackBranches: StackBranch[] = [
-  { name: "feature-c", prTitle: "Add session management", prNumber: 142, status: "current" },
-  { name: "feature-b", prTitle: "Auth middleware refactor", prNumber: 141, status: "default" },
-  { name: "feature-a", prTitle: "Login endpoint updates", prNumber: 140, status: "default" },
-  { name: "main", prTitle: "", prNumber: 0, status: "default" },
+export const mockLogEntries: LogEntry[] = [
+  {
+    change_id: "kxmvpqzl4a7e8b3c9d0f1g2h",
+    commit_id: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+    author: "claude-agent",
+    timestamp: "2026-02-23 10:42",
+    description: "Add input validation for user registration form",
+    bookmarks: ["agent/review-01"],
+    is_working_copy: true,
+    has_conflict: false,
+  },
+  {
+    change_id: "rnstvwxy5b8f9c0d1e2g3h4i",
+    commit_id: "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
+    author: "claude-agent",
+    timestamp: "2026-02-23 10:38",
+    description: "Refactor error handling in API client",
+    bookmarks: [],
+    is_working_copy: false,
+    has_conflict: false,
+  },
+  {
+    change_id: "pqmlnopq6c9g0d1e2f3h4i5j",
+    commit_id: "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2",
+    author: "claude-agent",
+    timestamp: "2026-02-23 10:30",
+    description: "Extract shared types into types.ts module",
+    bookmarks: [],
+    is_working_copy: false,
+    has_conflict: false,
+  },
+  {
+    change_id: "zywxuvst7d0h1e2f3g4i5j6k",
+    commit_id: "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3",
+    author: "developer",
+    timestamp: "2026-02-23 09:15",
+    description: "Initial project scaffold",
+    bookmarks: ["main"],
+    is_working_copy: false,
+    has_conflict: false,
+  },
 ];
 
-export const changedFiles: ChangedFile[] = [
-  { path: "src/auth/login.ts", additions: 12, deletions: 3 },
-  { path: "src/auth/middleware.ts", additions: 8, deletions: 15 },
-  { path: "src/auth/session.ts", additions: 25, deletions: 0 },
-  { path: "src/auth/auth.test.ts", additions: 34, deletions: 2 },
-];
+export const mockDiff: DiffResult = {
+  revision: mockLogEntries[0].change_id,
+  description: mockLogEntries[0].description,
+  patch: `diff --git a/src/components/RegisterForm.tsx b/src/components/RegisterForm.tsx
+index 3a1b2c3..d4e5f6a 100644
+--- a/src/components/RegisterForm.tsx
++++ b/src/components/RegisterForm.tsx
+@@ -1,5 +1,6 @@
+ import { useState } from "react";
+ import { useAuth } from "../hooks/useAuth";
++import { validateEmail, validatePassword } from "../utils/validation";
 
-export const diffFiles: Record<string, DiffFile> = {
-  "src/auth/session.ts": {
-    path: "src/auth/session.ts",
-    status: "added",
-    hunks: [
-      {
-        header: "@@ -0,0 +1,25 @@",
-        lines: [
-          { lineNumber: 1, content: 'import { Redis } from "ioredis";', type: "added" },
-          { lineNumber: 2, content: 'import { randomUUID } from "crypto";', type: "added" },
-          { lineNumber: 3, content: "", type: "added" },
-          { lineNumber: 4, content: "interface SessionData {", type: "added" },
-          { lineNumber: 5, content: "  userId: string;", type: "added" },
-          { lineNumber: 6, content: "  role: string;", type: "added" },
-          { lineNumber: 7, content: "  expiresAt: number;", type: "added" },
-          { lineNumber: 8, content: "}", type: "added" },
-          { lineNumber: 9, content: "", type: "added" },
-          { lineNumber: 10, content: "export class SessionManager {", type: "added" },
-          { lineNumber: 11, content: "  private redis: Redis;", type: "added" },
-          { lineNumber: 12, content: "", type: "added" },
-          { lineNumber: 13, content: "  constructor(redisUrl: string) {", type: "added" },
-          { lineNumber: 14, content: "    this.redis = new Redis(redisUrl);", type: "added" },
-          { lineNumber: 15, content: "  }", type: "added" },
-          { lineNumber: 16, content: "", type: "added" },
-          { lineNumber: 17, content: "  async create(userId: string, role: string): Promise<string> {", type: "added" },
-          { lineNumber: 18, content: "    const sessionId = randomUUID();", type: "added" },
-          { lineNumber: 19, content: "    const data: SessionData = {", type: "added" },
-          { lineNumber: 20, content: "      userId,", type: "added" },
-          { lineNumber: 21, content: "      role,", type: "added" },
-          { lineNumber: 22, content: "      expiresAt: Date.now() + 86400000,", type: "added" },
-          { lineNumber: 23, content: "    };", type: "added" },
-          { lineNumber: 24, content: '    await this.redis.set(`session:${sessionId}`, JSON.stringify(data));', type: "added" },
-          { lineNumber: 25, content: "    return sessionId;", type: "added" },
-          { lineNumber: 26, content: "  }", type: "added" },
-          { lineNumber: 27, content: "}", type: "added" },
-        ],
-      },
-    ],
-  },
-  "src/auth/login.ts": {
-    path: "src/auth/login.ts",
-    status: "modified",
-    hunks: [
-      {
-        header: "@@ -5,8 +5,17 @@",
-        lines: [
-          { lineNumber: 5, content: 'import { validateCredentials } from "./validate";', type: "context" },
-          { lineNumber: 6, content: 'import { rateLimiter } from "./middleware";', type: "context" },
-          { lineNumber: 7, content: "", type: "context" },
-          { lineNumber: 8, content: "export async function handleLogin(req: Request): Promise<Response> {", type: "removed" },
-          { lineNumber: 9, content: "  const { email, password } = await req.json();", type: "removed" },
-          { lineNumber: 10, content: "  const user = await validateCredentials(email, password);", type: "removed" },
-          { lineNumber: 8, content: "export async function handleLogin(", type: "added" },
-          { lineNumber: 9, content: "  req: Request,", type: "added" },
-          { lineNumber: 10, content: "  sessionMgr: SessionManager", type: "added" },
-          { lineNumber: 11, content: "): Promise<Response> {", type: "added" },
-          { lineNumber: 12, content: "  const { email, password } = await req.json();", type: "added" },
-          { lineNumber: 13, content: "  const user = await validateCredentials(email, password);", type: "added" },
-          { lineNumber: 14, content: "", type: "added" },
-          { lineNumber: 15, content: "  if (!user) {", type: "added" },
-          { lineNumber: 16, content: '    return new Response(JSON.stringify({ error: "Invalid credentials" }), {', type: "added" },
-          { lineNumber: 17, content: "      status: 401,", type: "added" },
-          { lineNumber: 18, content: "    });", type: "added" },
-          { lineNumber: 19, content: "  }", type: "added" },
-        ],
-      },
-    ],
-  },
-  "src/auth/middleware.ts": {
-    path: "src/auth/middleware.ts",
-    status: "modified",
-    hunks: [
-      {
-        header: "@@ -1,20 +1,13 @@",
-        lines: [
-          { lineNumber: 1, content: 'import { SessionManager } from "./session";', type: "added" },
-          { lineNumber: 2, content: "", type: "added" },
-          { lineNumber: 1, content: "// Legacy session check - to be removed", type: "removed" },
-          { lineNumber: 2, content: "function checkSessionCookie(req: Request): boolean {", type: "removed" },
-          { lineNumber: 3, content: '  const cookie = req.headers.get("cookie");', type: "removed" },
-          { lineNumber: 4, content: '  return cookie?.includes("session=") ?? false;', type: "removed" },
-          { lineNumber: 5, content: "}", type: "removed" },
-          { lineNumber: 6, content: "", type: "removed" },
-          { lineNumber: 3, content: "export async function authMiddleware(", type: "added" },
-          { lineNumber: 4, content: "  req: Request,", type: "added" },
-          { lineNumber: 5, content: "  sessionMgr: SessionManager", type: "added" },
-          { lineNumber: 6, content: "): Promise<Response | null> {", type: "added" },
-          { lineNumber: 7, content: '  const token = req.headers.get("authorization")?.replace("Bearer ", "");', type: "added" },
-          { lineNumber: 8, content: "  if (!token) {", type: "added" },
-          { lineNumber: 9, content: '    return new Response("Unauthorized", { status: 401 });', type: "added" },
-          { lineNumber: 10, content: "  }", type: "added" },
-          { lineNumber: 11, content: "  const session = await sessionMgr.get(token);", type: "added" },
-          { lineNumber: 12, content: "  if (!session) {", type: "added" },
-          { lineNumber: 13, content: '    return new Response("Session expired", { status: 401 });', type: "added" },
-          { lineNumber: 14, content: "  }", type: "context" },
-          { lineNumber: 15, content: "  return null;", type: "context" },
-          { lineNumber: 16, content: "}", type: "context" },
-        ],
-      },
-    ],
-  },
-  "src/auth/auth.test.ts": {
-    path: "src/auth/auth.test.ts",
-    status: "modified",
-    hunks: [
-      {
-        header: "@@ -1,5 +1,37 @@",
-        lines: [
-          { lineNumber: 1, content: 'import { describe, it, expect, beforeEach } from "vitest";', type: "added" },
-          { lineNumber: 2, content: 'import { SessionManager } from "./session";', type: "added" },
-          { lineNumber: 3, content: 'import { handleLogin } from "./login";', type: "added" },
-          { lineNumber: 4, content: "", type: "added" },
-          { lineNumber: 1, content: 'import { describe, it, expect } from "vitest";', type: "removed" },
-          { lineNumber: 2, content: 'import { handleLogin } from "./login";', type: "removed" },
-          { lineNumber: 5, content: "", type: "context" },
-          { lineNumber: 6, content: 'describe("auth", () => {', type: "context" },
-          { lineNumber: 7, content: "  let sessionMgr: SessionManager;", type: "added" },
-          { lineNumber: 8, content: "", type: "added" },
-          { lineNumber: 9, content: "  beforeEach(() => {", type: "added" },
-          { lineNumber: 10, content: '    sessionMgr = new SessionManager("redis://localhost:6379");', type: "added" },
-          { lineNumber: 11, content: "  });", type: "added" },
-          { lineNumber: 12, content: "", type: "added" },
-          { lineNumber: 13, content: '  it("should create a session on valid login", async () => {', type: "added" },
-          { lineNumber: 14, content: "    const req = new Request(\"http://localhost/login\", {", type: "added" },
-          { lineNumber: 15, content: '      method: "POST",', type: "added" },
-          { lineNumber: 16, content: "      body: JSON.stringify({ email: \"test@example.com\", password: \"pass123\" }),", type: "added" },
-          { lineNumber: 17, content: "    });", type: "added" },
-          { lineNumber: 18, content: "    const res = await handleLogin(req, sessionMgr);", type: "added" },
-          { lineNumber: 19, content: "    expect(res.status).toBe(200);", type: "added" },
-          { lineNumber: 20, content: "    const body = await res.json();", type: "added" },
-          { lineNumber: 21, content: "    expect(body.sessionId).toBeDefined();", type: "added" },
-          { lineNumber: 22, content: "  });", type: "added" },
-          { lineNumber: 23, content: "", type: "added" },
-          { lineNumber: 24, content: '  it("should reject invalid credentials", async () => {', type: "added" },
-          { lineNumber: 25, content: "    const req = new Request(\"http://localhost/login\", {", type: "added" },
-          { lineNumber: 26, content: '      method: "POST",', type: "added" },
-          { lineNumber: 27, content: "      body: JSON.stringify({ email: \"bad@example.com\", password: \"wrong\" }),", type: "added" },
-          { lineNumber: 28, content: "    });", type: "added" },
-          { lineNumber: 29, content: "    const res = await handleLogin(req, sessionMgr);", type: "added" },
-          { lineNumber: 30, content: "    expect(res.status).toBe(401);", type: "added" },
-          { lineNumber: 31, content: "  });", type: "added" },
-          { lineNumber: 32, content: "});", type: "context" },
-        ],
-      },
-    ],
-  },
+ interface FormState {
+   email: string;
+@@ -8,6 +9,7 @@ interface FormState {
+
+ interface FormErrors {
+   email?: string;
++  password?: string;
+ }
+
+ export function RegisterForm() {
+@@ -16,12 +18,29 @@ export function RegisterForm() {
+   const [errors, setErrors] = useState<FormErrors>({});
+   const { register } = useAuth();
+
++  function validate(): boolean {
++    const newErrors: FormErrors = {};
++
++    if (!validateEmail(form.email)) {
++      newErrors.email = "Please enter a valid email address";
++    }
++
++    if (!validatePassword(form.password)) {
++      newErrors.password =
++        "Password must be at least 8 characters with one uppercase letter and one number";
++    }
++
++    setErrors(newErrors);
++    return Object.keys(newErrors).length === 0;
++  }
++
+   async function handleSubmit(e: React.FormEvent) {
+     e.preventDefault();
+-    if (!form.email.includes("@")) {
+-      setErrors({ email: "Invalid email" });
++    if (!validate()) {
+       return;
+     }
++
+     try {
+       await register(form.email, form.password);
+     } catch (err) {
+diff --git a/src/utils/validation.ts b/src/utils/validation.ts
+new file mode 100644
+index 0000000..a8b9c0d
+--- /dev/null
++++ b/src/utils/validation.ts
+@@ -0,0 +1,13 @@
++const EMAIL_RE = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
++
++export function validateEmail(email: string): boolean {
++  return EMAIL_RE.test(email.trim());
++}
++
++export function validatePassword(password: string): boolean {
++  if (password.length < 8) return false;
++  if (!/[A-Z]/.test(password)) return false;
++  if (!/[0-9]/.test(password)) return false;
++  return true;
++}`,
+  files_changed: ["src/components/RegisterForm.tsx", "src/utils/validation.ts"],
 };
 
-export const comments: Comment[] = [
+export const mockComments: Comment[] = [
   {
-    id: "c1",
-    author: "alice",
-    file: "src/auth/login.ts",
-    lineRange: [12, 12],
-    body: "The email is being passed directly into the query without sanitization. This could be vulnerable to SQL injection if validateCredentials uses raw queries.",
-    date: "2h ago",
-    status: "pending",
+    id: "c001-mock",
+    revision: mockLogEntries[0].change_id,
+    file_path: "src/components/RegisterForm.tsx",
+    side: "new",
+    line: 21,
+    body: "The validate function mutates component state via setErrors(). Consider returning the errors object and letting the caller decide — makes this easier to unit test.",
+    severity: "issue",
+    created_at: "2026-02-23T10:45:00Z",
+    resolved: false,
   },
   {
-    id: "c2",
-    author: "bob",
-    file: "src/auth/login.ts",
-    lineRange: [8, 11],
-    body: "Should we add rate limiting to the login endpoint? The rateLimiter import is unused.",
-    date: "1h ago",
-    status: "pending",
+    id: "c002-mock",
+    revision: mockLogEntries[0].change_id,
+    file_path: "src/components/RegisterForm.tsx",
+    side: "new",
+    line: 34,
+    body: "Nit: you could destructure `form` in the function signature to make the dependency on email/password explicit.",
+    severity: "nit",
+    created_at: "2026-02-23T10:46:00Z",
+    resolved: false,
   },
   {
-    id: "c3",
-    author: "alice",
-    file: "src/auth/session.ts",
-    lineRange: [22, 22],
-    body: "The session TTL is hardcoded to 24h. Consider making this configurable via an environment variable.",
-    date: "3h ago",
-    status: "resolved",
-    fixedByClaudeSuggestion: {
-      before: "      expiresAt: Date.now() + 86400000,",
-      after: "      expiresAt: Date.now() + (parseInt(process.env.SESSION_TTL_MS ?? \"86400000\")),",
-    },
+    id: "c003-mock",
+    revision: mockLogEntries[0].change_id,
+    file_path: "src/utils/validation.ts",
+    side: "new",
+    line: 3,
+    body: "Should validateEmail also reject emails longer than 254 characters (RFC 5321 limit)?",
+    severity: "question",
+    created_at: "2026-02-23T10:47:00Z",
+    resolved: false,
+  },
+  {
+    id: "c004-mock",
+    revision: mockLogEntries[0].change_id,
+    file_path: "src/utils/validation.ts",
+    side: "new",
+    line: 8,
+    body: "Good: checking length, uppercase, and digit. Consider adding a special-character requirement to match OWASP guidelines.",
+    severity: "note",
+    created_at: "2026-02-23T10:48:00Z",
+    resolved: true,
   },
 ];
