@@ -1,11 +1,12 @@
 {
-  "$schema": "../gen/schemas/desktop-schema.json",
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-utils/schema.json",
   "identifier": "default",
-  "description": "enables the default permissions",
-  "windows": [
-    "main"
-  ],
+  "description": "Default capabilities for Pancake",
+  "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "shell:allow-open",
+    "dialog:default",
+    "fs:default"
   ]
 }
