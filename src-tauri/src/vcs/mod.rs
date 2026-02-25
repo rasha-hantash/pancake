@@ -1,3 +1,4 @@
+pub mod git;
 pub mod jj;
 
 use serde::{Deserialize, Serialize};

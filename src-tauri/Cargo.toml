@@ -1,7 +1,7 @@
 [package]
 name = "pancake"
 version = "0.1.0"
-description = "JJ Diff Reviewer"
+description = "Local PR Reviewer"
 authors = ["you"]
 license = ""
 repository = ""
@@ -28,3 +28,4 @@ uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "6"
 sha2 = "0.10"
+reqwest = { version = "0.12", features = ["json"] }

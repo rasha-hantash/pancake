@@ -8,8 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::State;
 
-// Re-export jj types for backward-compatible Tauri command signatures
-use vcs::jj;
+use vcs::{git, jj, Branch, GitDiffResult, GitLogEntry, VcsBackend};
 
 // ── Comment Types (VCS-agnostic) ──
 
@@ -43,15 +42,70 @@ pub struct AgentExport {
     pub summary: String,
 }
 
+// ── Multi-Repo Types ──
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepoMeta {
+    pub path: String,
+    pub display_name: String,
+    pub vcs: VcsBackend,
+    pub has_graphite: bool,
+    pub base_branch: Option<String>,
+    #[serde(default)]
+    pub reviewed_commits: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RepoWithStatus {
+    pub meta: RepoMeta,
+    pub has_any_attention: bool,
+    pub branch_statuses: HashMap<String, bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BranchStatus {
+    pub needs_attention: bool,
+    pub tip_commit: String,
+}
+
 // ── App State ──
 
 pub struct AppState {
     pub repo_path: Mutex<Option<String>>,
+    pub repos: Mutex<HashMap<String, RepoMeta>>,
+    pub active_repo: Mutex<Option<String>>,
 }
 
-// ── Helpers ──
+// ── Persistence Helpers ──
 
-/// Hash repo path using SHA-256 for stable, collision-resistant file naming.
+fn repos_config_path() -> PathBuf {
+    let data_dir = dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("pancake");
+    fs::create_dir_all(&data_dir).ok();
+    data_dir.join("repos.json")
+}
+
+fn load_repos_from_disk() -> HashMap<String, RepoMeta> {
+    let path = repos_config_path();
+    if path.exists() {
+        if let Ok(content) = fs::read_to_string(&path) {
+            if let Ok(repos) = serde_json::from_str::<HashMap<String, RepoMeta>>(&content) {
+                return repos;
+            }
+        }
+    }
+    HashMap::new()
+}
+
+fn save_repos_to_disk(repos: &HashMap<String, RepoMeta>) -> Result<(), String> {
+    let path = repos_config_path();
+    let json = serde_json::to_string_pretty(repos).map_err(|e| e.to_string())?;
+    fs::write(&path, json).map_err(|e| format!("Failed to save repos: {}", e))
+}
+
+// ── Shared Helpers ──
+
 fn hash_repo_path(repo_path: &str) -> String {
     let hash = Sha256::digest(repo_path.as_bytes());
     format!("{:x}", hash)
@@ -67,7 +121,6 @@ fn get_comments_path(repo_path: &str) -> PathBuf {
     data_dir.join(format!("{}.json", hash))
 }
 
-/// Sanitize HTML entities in user input for defense-in-depth against XSS.
 fn sanitize_html(input: &str) -> String {
     input
         .replace('&', "&amp;")
@@ -99,7 +152,222 @@ fn save_comments_to_disk(repo_path: &str, store: &CommentStore) -> Result<(), St
     fs::write(&path, json).map_err(|e| format!("Failed to save comments: {}", e))
 }
 
-// ── jj Tauri Commands (delegating to vcs::jj) ──
+fn detect_vcs(path: &str) -> Option<VcsBackend> {
+    let p = Path::new(path);
+    if p.join(".git").exists() {
+        Some(VcsBackend::Git)
+    } else if p.join(".jj").exists() {
+        Some(VcsBackend::Jj)
+    } else {
+        None
+    }
+}
+
+fn is_graphite_repo(path: &str) -> bool {
+    Path::new(path)
+        .join(".git")
+        .join(".graphite_repo_config")
+        .exists()
+}
+
+// ── Multi-Repo Tauri Commands ──
+
+#[tauri::command]
+fn add_repo(path: String, state: State<AppState>) -> Result<RepoMeta, String> {
+    let canonical = fs::canonicalize(&path)
+        .map_err(|e| format!("Invalid path: {}", e))?
+        .to_string_lossy()
+        .to_string();
+
+    let vcs = detect_vcs(&canonical)
+        .ok_or_else(|| format!("Not a git or jj repository: {}", canonical))?;
+
+    let has_graphite = vcs == VcsBackend::Git && is_graphite_repo(&canonical);
+
+    // Detect base branch
+    let base_branch = if has_graphite {
+        // Read Graphite trunk config
+        let config_path = Path::new(&canonical)
+            .join(".git")
+            .join(".graphite_repo_config");
+        fs::read_to_string(&config_path)
+            .ok()
+            .and_then(|content| serde_json::from_str::<serde_json::Value>(&content).ok())
+            .and_then(|v| {
+                v.as_object()
+                    .and_then(|obj| {
+                        obj.iter()
+                            .find(|(_, val)| {
+                                val.get("trunk").and_then(|t| t.as_bool()).unwrap_or(false)
+                            })
+                            .map(|(key, _)| key.clone())
+                    })
+            })
+    } else if vcs == VcsBackend::Git {
+        git::detect_base_branch(&canonical).ok()
+    } else {
+        None
+    };
+
+    let display_name = Path::new(&canonical)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| canonical.clone());
+
+    let meta = RepoMeta {
+        path: canonical.clone(),
+        display_name,
+        vcs,
+        has_graphite,
+        base_branch,
+        reviewed_commits: HashMap::new(),
+    };
+
+    let mut repos = state.repos.lock().unwrap();
+    repos.insert(canonical, meta.clone());
+    save_repos_to_disk(&repos)?;
+
+    Ok(meta)
+}
+
+#[tauri::command]
+fn remove_repo(path: String, state: State<AppState>) -> Result<(), String> {
+    let mut repos = state.repos.lock().unwrap();
+    repos.remove(&path);
+    save_repos_to_disk(&repos)?;
+
+    // Clear active repo if it was the removed one
+    let mut active = state.active_repo.lock().unwrap();
+    if active.as_deref() == Some(&path) {
+        *active = None;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+fn list_repos(state: State<AppState>) -> Result<Vec<RepoWithStatus>, String> {
+    let repos = state.repos.lock().unwrap();
+    let mut result = Vec::new();
+
+    for meta in repos.values() {
+        if meta.vcs != VcsBackend::Git {
+            result.push(RepoWithStatus {
+                meta: meta.clone(),
+                has_any_attention: false,
+                branch_statuses: HashMap::new(),
+            });
+            continue;
+        }
+
+        let branches = git::list_branches(&meta.path).unwrap_or_default();
+        let base = meta
+            .base_branch
+            .clone()
+            .unwrap_or_else(|| "main".to_string());
+
+        let mut branch_statuses = HashMap::new();
+        let mut has_any = false;
+
+        for branch in &branches {
+            if branch.name == base {
+                continue;
+            }
+            let tip = git::get_branch_tip(&meta.path, &branch.name).unwrap_or_default();
+            let reviewed = meta.reviewed_commits.get(&branch.name);
+            let needs_attention = reviewed.map_or(true, |r| r != &tip);
+            branch_statuses.insert(branch.name.clone(), needs_attention);
+            if needs_attention {
+                has_any = true;
+            }
+        }
+
+        result.push(RepoWithStatus {
+            meta: meta.clone(),
+            has_any_attention: has_any,
+            branch_statuses,
+        });
+    }
+
+    result.sort_by(|a, b| a.meta.display_name.cmp(&b.meta.display_name));
+    Ok(result)
+}
+
+#[tauri::command]
+fn set_active_repo(path: String, state: State<AppState>) -> Result<(), String> {
+    *state.active_repo.lock().unwrap() = Some(path);
+    Ok(())
+}
+
+#[tauri::command]
+fn git_list_branches(repo_path: String) -> Result<Vec<Branch>, String> {
+    git::list_branches(&repo_path)
+}
+
+#[tauri::command]
+fn git_detect_base_branch(repo_path: String) -> Result<String, String> {
+    git::detect_base_branch(&repo_path)
+}
+
+#[tauri::command]
+fn git_get_log(
+    repo_path: String,
+    branch: String,
+    base_override: Option<String>,
+) -> Result<Vec<GitLogEntry>, String> {
+    let base = base_override.unwrap_or_else(|| {
+        git::detect_base_branch(&repo_path).unwrap_or_else(|_| "main".to_string())
+    });
+    git::get_log(&repo_path, &branch, &base)
+}
+
+#[tauri::command]
+fn git_get_diff(
+    repo_path: String,
+    branch: String,
+    base_override: Option<String>,
+) -> Result<GitDiffResult, String> {
+    let base = base_override.unwrap_or_else(|| {
+        git::detect_base_branch(&repo_path).unwrap_or_else(|_| "main".to_string())
+    });
+    git::get_diff(&repo_path, &branch, &base)
+}
+
+#[tauri::command]
+fn get_branch_status(
+    repo_path: String,
+    branch: String,
+    state: State<AppState>,
+) -> Result<BranchStatus, String> {
+    let tip = git::get_branch_tip(&repo_path, &branch)?;
+    let repos = state.repos.lock().unwrap();
+    let needs_attention = repos
+        .get(&repo_path)
+        .and_then(|meta| meta.reviewed_commits.get(&branch))
+        .map_or(true, |reviewed| reviewed != &tip);
+
+    Ok(BranchStatus {
+        needs_attention,
+        tip_commit: tip,
+    })
+}
+
+#[tauri::command]
+fn mark_reviewed(
+    repo_path: String,
+    branch: String,
+    state: State<AppState>,
+) -> Result<(), String> {
+    let tip = git::get_branch_tip(&repo_path, &branch)?;
+    let mut repos = state.repos.lock().unwrap();
+    if let Some(meta) = repos.get_mut(&repo_path) {
+        meta.reviewed_commits.insert(branch, tip);
+        save_repos_to_disk(&repos)?;
+    }
+    Ok(())
+}
+
+// ── Legacy jj Tauri Commands (delegating to vcs::jj) ──
 
 #[tauri::command]
 fn set_repo_path(path: String, state: State<AppState>) -> Result<String, String> {
@@ -248,14 +516,31 @@ fn export_comments_for_agent(
 // ── App Entry ──
 
 pub fn run() {
+    let repos = load_repos_from_disk();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .manage(AppState {
             repo_path: Mutex::new(None),
+            repos: Mutex::new(repos),
+            active_repo: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
+            // Multi-repo commands
+            add_repo,
+            remove_repo,
+            list_repos,
+            set_active_repo,
+            // Git commands
+            git_list_branches,
+            git_detect_base_branch,
+            git_get_log,
+            git_get_diff,
+            get_branch_status,
+            mark_reviewed,
+            // Legacy jj commands
             set_repo_path,
             get_repo_path,
             list_bookmarks,
@@ -263,6 +548,7 @@ pub fn run() {
             get_log,
             get_diff,
             get_conflicts,
+            // Comment commands
             save_comment,
             get_comments,
             delete_comment,
