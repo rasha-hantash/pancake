@@ -4,8 +4,9 @@ import { DiffViewer } from "../components/DiffViewer";
 import { CommentsPanel } from "../components/CommentsPanel";
 import { useAppContext } from "./__root";
 import { useQuery } from "@tanstack/react-query";
-import { gitDiffQuery, commentsQuery } from "../api/queries";
+import { gitDiffQuery, commentsQuery, useSaveComment } from "../api/queries";
 import { mockGitDiff, mockComments } from "../data/mockData";
+import type { Comment } from "../api/types";
 
 export const Route = createFileRoute("/")({
   component: IndexComponent,
@@ -34,6 +35,33 @@ function IndexComponent() {
   const activeDiff = useMockData ? mockGitDiff : diff;
   const activeComments = useMockData ? mockComments : (liveComments ?? []);
 
+  const saveMutation = useSaveComment(
+    activeRepoPath ?? "",
+    selectedBranch ?? "",
+  );
+
+  function handleAddComment(
+    filePath: string,
+    line: number,
+    side: string,
+    body: string,
+    severity: Comment["severity"],
+  ) {
+    if (!activeRepoPath || !selectedBranch) return;
+    const comment: Comment = {
+      id: crypto.randomUUID(),
+      revision: selectedBranch,
+      file_path: filePath,
+      side,
+      line,
+      body,
+      severity,
+      created_at: new Date().toISOString(),
+      resolved: false,
+    };
+    saveMutation.mutate(comment);
+  }
+
   return (
     <>
       <Sidebar />
@@ -50,6 +78,7 @@ function IndexComponent() {
           <DiffViewer
             patch={activeDiff?.patch ?? ""}
             comments={activeComments}
+            onAddComment={handleAddComment}
           />
         )}
       </main>
