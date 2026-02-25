@@ -2,54 +2,50 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Sidebar } from "../components/Sidebar";
 import { DiffViewer } from "../components/DiffViewer";
 import { CommentsPanel } from "../components/CommentsPanel";
-import { ConflictViewer } from "../components/ConflictViewer";
 import { useAppContext } from "./__root";
 import { useQuery } from "@tanstack/react-query";
-import { diffQuery, conflictsQuery, commentsQuery } from "../api/queries";
-import { mockDiff, mockComments } from "../data/mockData";
+import { gitDiffQuery, commentsQuery } from "../api/queries";
+import { mockGitDiff, mockComments } from "../data/mockData";
 
 export const Route = createFileRoute("/")({
   component: IndexComponent,
 });
 
 function IndexComponent() {
-  const { repoPath, selectedRevision, useMockData } = useAppContext();
+  const { activeRepoPath, selectedBranch, diffBaseOverride, useMockData } =
+    useAppContext();
 
-  const isLive = !useMockData && !!repoPath && !!selectedRevision;
+  const isLive = !useMockData && !!activeRepoPath && !!selectedBranch;
 
   const { data: diff } = useQuery({
-    ...diffQuery(repoPath!, selectedRevision!),
-    enabled: isLive,
-  });
-
-  const { data: conflicts } = useQuery({
-    ...conflictsQuery(repoPath!, selectedRevision!),
+    ...gitDiffQuery(
+      activeRepoPath!,
+      selectedBranch!,
+      diffBaseOverride ?? undefined,
+    ),
     enabled: isLive,
   });
 
   const { data: liveComments } = useQuery({
-    ...commentsQuery(repoPath!, selectedRevision!),
+    ...commentsQuery(activeRepoPath!, selectedBranch!),
     enabled: isLive,
   });
 
-  const activeDiff = useMockData ? mockDiff : diff;
+  const activeDiff = useMockData ? mockGitDiff : diff;
   const activeComments = useMockData ? mockComments : (liveComments ?? []);
-  const hasConflicts = !useMockData && conflicts && conflicts.length > 0;
 
   return (
     <>
       <Sidebar />
       <main className="flex-1 flex flex-col overflow-hidden">
-        {!repoPath ? (
+        {!activeRepoPath ? (
           <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
             Select a repository to get started
           </div>
-        ) : !selectedRevision ? (
+        ) : !selectedBranch ? (
           <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
-            Select a revision from the sidebar
+            Select a branch from the sidebar
           </div>
-        ) : hasConflicts ? (
-          <ConflictViewer conflicts={conflicts} />
         ) : (
           <DiffViewer
             patch={activeDiff?.patch ?? ""}

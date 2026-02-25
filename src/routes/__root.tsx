@@ -1,13 +1,24 @@
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import type { QueryClient } from "@tanstack/react-query";
 import { createContext, useContext, useState } from "react";
-import { mockLogEntries } from "../data/mockData";
+import type { RepoWithStatus } from "../api/types";
+import { mockRepos, mockBranches } from "../data/mockData";
 
 interface AppContextValue {
-  repoPath: string | null;
-  setRepoPath: (path: string | null) => void;
-  selectedRevision: string | null;
-  setSelectedRevision: (rev: string | null) => void;
+  // Multi-repo state
+  watchedRepos: RepoWithStatus[];
+  activeRepoPath: string | null;
+  setActiveRepo: (path: string | null) => void;
+
+  // Branch state
+  selectedBranch: string | null;
+  setSelectedBranch: (branch: string | null) => void;
+
+  // Diff base override (for stack parent diffing)
+  diffBaseOverride: string | null;
+  setDiffBaseOverride: (base: string | null) => void;
+
+  // Mock data toggle
   useMockData: boolean;
   setUseMockData: (mock: boolean) => void;
 }
@@ -26,20 +37,26 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootComponent() {
   const [useMockData, setUseMockData] = useState(true);
-  const [repoPath, setRepoPath] = useState<string | null>(
-    useMockData ? "(mock)" : null,
+  const [activeRepoPath, setActiveRepoPath] = useState<string | null>(
+    useMockData ? mockRepos[0].meta.path : null,
   );
-  const [selectedRevision, setSelectedRevision] = useState<string | null>(
-    useMockData ? mockLogEntries[0].change_id : null,
+  const [selectedBranch, setSelectedBranch] = useState<string | null>(
+    useMockData ? mockBranches[1].name : null,
   );
+  const [diffBaseOverride, setDiffBaseOverride] = useState<string | null>(null);
+
+  const watchedRepos = useMockData ? mockRepos : [];
 
   return (
     <AppContext.Provider
       value={{
-        repoPath,
-        setRepoPath,
-        selectedRevision,
-        setSelectedRevision,
+        watchedRepos,
+        activeRepoPath,
+        setActiveRepo: setActiveRepoPath,
+        selectedBranch,
+        setSelectedBranch,
+        diffBaseOverride,
+        setDiffBaseOverride,
         useMockData,
         setUseMockData,
       }}

@@ -7,7 +7,6 @@ import {
   useDeleteComment,
   useResolveComment,
 } from "../api/queries";
-import { exportCommentsForAgent } from "../api/tauri";
 import type { Comment } from "../api/types";
 
 function severityColor(s: string): string {
@@ -26,31 +25,32 @@ interface CommentsPanelProps {
 }
 
 export function CommentsPanel({ comments: propComments }: CommentsPanelProps) {
-  const { repoPath, selectedRevision } = useAppContext();
+  const { activeRepoPath, selectedBranch } = useAppContext();
 
   const { data: fetchedComments = [] } = useQuery({
-    ...commentsQuery(repoPath!, selectedRevision!),
-    enabled: !propComments && !!repoPath && !!selectedRevision,
+    ...commentsQuery(activeRepoPath!, selectedBranch!),
+    enabled: !propComments && !!activeRepoPath && !!selectedBranch,
   });
 
   const comments = propComments ?? fetchedComments;
 
-  const saveMutation = useSaveComment(repoPath ?? "", selectedRevision ?? "");
+  const saveMutation = useSaveComment(
+    activeRepoPath ?? "",
+    selectedBranch ?? "",
+  );
   const deleteMutation = useDeleteComment(
-    repoPath ?? "",
-    selectedRevision ?? "",
+    activeRepoPath ?? "",
+    selectedBranch ?? "",
   );
   const resolveMutation = useResolveComment(
-    repoPath ?? "",
-    selectedRevision ?? "",
+    activeRepoPath ?? "",
+    selectedBranch ?? "",
   );
 
   const [newBody, setNewBody] = useState("");
   const [newSeverity, setNewSeverity] = useState<
     "note" | "nit" | "issue" | "question"
   >("note");
-  const [exportOutput, setExportOutput] = useState("");
-  const [showExport, setShowExport] = useState(false);
 
   const unresolvedCount = comments.filter((c) => !c.resolved).length;
 
@@ -65,10 +65,10 @@ export function CommentsPanel({ comments: propComments }: CommentsPanelProps) {
   }
 
   async function handleAddComment() {
-    if (!newBody.trim() || !repoPath || !selectedRevision) return;
+    if (!newBody.trim() || !activeRepoPath || !selectedBranch) return;
     const comment: Comment = {
       id: crypto.randomUUID(),
-      revision: selectedRevision,
+      revision: selectedBranch,
       file_path: "general",
       side: "new",
       line: 0,
@@ -81,18 +81,6 @@ export function CommentsPanel({ comments: propComments }: CommentsPanelProps) {
     setNewBody("");
   }
 
-  async function handleExport() {
-    if (!repoPath || !selectedRevision) return;
-    const result = await exportCommentsForAgent(repoPath, selectedRevision);
-    setExportOutput(result.summary);
-    setShowExport(true);
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
-    } catch {
-      // Clipboard not available
-    }
-  }
-
   return (
     <aside className="w-80 h-full bg-surface border-l border-border flex flex-col overflow-hidden relative">
       {/* Header */}
@@ -103,18 +91,10 @@ export function CommentsPanel({ comments: propComments }: CommentsPanelProps) {
             {unresolvedCount} unresolved &middot; {comments.length} total
           </p>
         </div>
-        {selectedRevision && (
-          <button
-            onClick={handleExport}
-            className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-medium rounded-md transition-colors"
-          >
-            Export
-          </button>
-        )}
       </div>
 
       {/* Add Comment Form */}
-      {selectedRevision && (
+      {selectedBranch && (
         <div className="p-4 border-b border-border">
           <div className="flex gap-2 mb-2">
             <select
@@ -161,9 +141,9 @@ export function CommentsPanel({ comments: propComments }: CommentsPanelProps) {
       <div className="flex-1 overflow-y-auto">
         {Object.keys(groupedComments).length === 0 ? (
           <div className="p-8 text-center text-text-muted text-sm">
-            {selectedRevision
+            {selectedBranch
               ? "No comments yet. Click a line in the diff to start reviewing."
-              : "Select a revision to start reviewing."}
+              : "Select a branch to start reviewing."}
           </div>
         ) : (
           Object.entries(groupedComments).map(([filePath, fileComments]) => (
@@ -219,29 +199,6 @@ export function CommentsPanel({ comments: propComments }: CommentsPanelProps) {
           ))
         )}
       </div>
-
-      {/* Export Modal */}
-      {showExport && (
-        <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-surface border border-border rounded-xl p-6 max-w-lg w-full mx-4 max-h-[80vh] flex flex-col">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-sm font-semibold text-text">Agent Export</h3>
-              <button
-                onClick={() => setShowExport(false)}
-                className="text-text-muted hover:text-text"
-              >
-                &#x2715;
-              </button>
-            </div>
-            <pre className="flex-1 overflow-auto bg-bg p-4 rounded-lg text-xs text-text font-mono whitespace-pre-wrap">
-              {exportOutput}
-            </pre>
-            <p className="mt-3 text-xs text-text-muted">
-              Full JSON has been copied to clipboard.
-            </p>
-          </div>
-        </div>
-      )}
     </aside>
   );
 }

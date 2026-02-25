@@ -1,51 +1,106 @@
-import type { LogEntry, DiffResult, Comment } from "../api/types";
+import type {
+  Branch,
+  GitLogEntry,
+  GitDiffResult,
+  RepoWithStatus,
+  Comment,
+} from "../api/types";
 
-export const mockLogEntries: LogEntry[] = [
+// ── Mock Repos ──
+
+export const mockRepos: RepoWithStatus[] = [
   {
-    change_id: "kxmvpqzl4a7e8b3c9d0f1g2h",
-    commit_id: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
-    author: "claude-agent",
-    timestamp: "2026-02-23 10:42",
-    description: "Add input validation for user registration form",
-    bookmarks: ["agent/review-01"],
-    is_working_copy: true,
-    has_conflict: false,
+    meta: {
+      path: "/Users/dev/projects/pancake",
+      display_name: "pancake",
+      vcs: "Git",
+      has_graphite: true,
+      base_branch: "main",
+    },
+    has_any_attention: true,
+    branch_statuses: {
+      "feat/add-validation": true,
+      "feat/refactor-api": true,
+      "fix/login-bug": false,
+    },
   },
   {
-    change_id: "rnstvwxy5b8f9c0d1e2g3h4i",
-    commit_id: "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
-    author: "claude-agent",
-    timestamp: "2026-02-23 10:38",
-    description: "Refactor error handling in API client",
-    bookmarks: [],
-    is_working_copy: false,
-    has_conflict: false,
-  },
-  {
-    change_id: "pqmlnopq6c9g0d1e2f3h4i5j",
-    commit_id: "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2",
-    author: "claude-agent",
-    timestamp: "2026-02-23 10:30",
-    description: "Extract shared types into types.ts module",
-    bookmarks: [],
-    is_working_copy: false,
-    has_conflict: false,
-  },
-  {
-    change_id: "zywxuvst7d0h1e2f3g4i5j6k",
-    commit_id: "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3",
-    author: "developer",
-    timestamp: "2026-02-23 09:15",
-    description: "Initial project scaffold",
-    bookmarks: ["main"],
-    is_working_copy: false,
-    has_conflict: false,
+    meta: {
+      path: "/Users/dev/projects/backend-api",
+      display_name: "backend-api",
+      vcs: "Git",
+      has_graphite: false,
+      base_branch: "main",
+    },
+    has_any_attention: false,
+    branch_statuses: {},
   },
 ];
 
-export const mockDiff: DiffResult = {
-  revision: mockLogEntries[0].change_id,
-  description: mockLogEntries[0].description,
+// ── Mock Branches ──
+
+export const mockBranches: Branch[] = [
+  {
+    name: "main",
+    commit_hash: "a1b2c3d",
+    is_current: false,
+    ahead_count: 0,
+    behind_count: 0,
+  },
+  {
+    name: "feat/add-validation",
+    commit_hash: "d4e5f6a",
+    is_current: true,
+    ahead_count: 3,
+    behind_count: 0,
+  },
+  {
+    name: "feat/refactor-api",
+    commit_hash: "b7c8d9e",
+    is_current: false,
+    ahead_count: 2,
+    behind_count: 1,
+  },
+  {
+    name: "fix/login-bug",
+    commit_hash: "f0a1b2c",
+    is_current: false,
+    ahead_count: 1,
+    behind_count: 0,
+  },
+];
+
+// ── Mock Git Log ──
+
+export const mockGitLog: GitLogEntry[] = [
+  {
+    commit_id: "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3",
+    author: "developer@example.com",
+    timestamp: "2 hours ago",
+    description: "Add input validation for user registration form",
+    branches: ["feat/add-validation"],
+  },
+  {
+    commit_id: "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2",
+    author: "developer@example.com",
+    timestamp: "3 hours ago",
+    description: "Extract shared types into types.ts module",
+    branches: [],
+  },
+  {
+    commit_id: "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
+    author: "developer@example.com",
+    timestamp: "4 hours ago",
+    description: "Refactor error handling in API client",
+    branches: [],
+  },
+];
+
+// ── Mock Git Diff ──
+
+export const mockGitDiff: GitDiffResult = {
+  branch: "feat/add-validation",
+  description: "Add input validation for user registration form",
   patch: `diff --git a/src/components/RegisterForm.tsx b/src/components/RegisterForm.tsx
 index 3a1b2c3..d4e5f6a 100644
 --- a/src/components/RegisterForm.tsx
@@ -117,10 +172,12 @@ index 0000000..a8b9c0d
   files_changed: ["src/components/RegisterForm.tsx", "src/utils/validation.ts"],
 };
 
+// ── Mock Comments ──
+
 export const mockComments: Comment[] = [
   {
     id: "c001-mock",
-    revision: mockLogEntries[0].change_id,
+    revision: "feat/add-validation",
     file_path: "src/components/RegisterForm.tsx",
     side: "new",
     line: 21,
@@ -131,7 +188,7 @@ export const mockComments: Comment[] = [
   },
   {
     id: "c002-mock",
-    revision: mockLogEntries[0].change_id,
+    revision: "feat/add-validation",
     file_path: "src/components/RegisterForm.tsx",
     side: "new",
     line: 34,
@@ -142,7 +199,7 @@ export const mockComments: Comment[] = [
   },
   {
     id: "c003-mock",
-    revision: mockLogEntries[0].change_id,
+    revision: "feat/add-validation",
     file_path: "src/utils/validation.ts",
     side: "new",
     line: 3,
@@ -153,7 +210,7 @@ export const mockComments: Comment[] = [
   },
   {
     id: "c004-mock",
-    revision: mockLogEntries[0].change_id,
+    revision: "feat/add-validation",
     file_path: "src/utils/validation.ts",
     side: "new",
     line: 8,

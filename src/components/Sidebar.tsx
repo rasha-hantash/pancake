@@ -1,184 +1,189 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { useAppContext } from "../routes/__root";
-import { setRepoPath } from "../api/tauri";
-import { bookmarksQuery, workspacesQuery, logQuery } from "../api/queries";
-import { mockLogEntries } from "../data/mockData";
+import { branchesQuery, reposQuery, useAddRepo } from "../api/queries";
+import { mockBranches, mockGitLog } from "../data/mockData";
 
 export function Sidebar() {
   const {
-    repoPath,
-    setRepoPath: setAppRepoPath,
-    selectedRevision,
-    setSelectedRevision,
+    activeRepoPath,
+    setActiveRepo,
+    selectedBranch,
+    setSelectedBranch,
     useMockData,
     setUseMockData,
+    watchedRepos,
   } = useAppContext();
 
-  const isLive = !useMockData && !!repoPath;
-  const { data: workspaces = [] } = useQuery({
-    ...workspacesQuery(repoPath!),
-    enabled: isLive,
+  const { data: liveRepos = [] } = useQuery({
+    ...reposQuery(),
+    enabled: !useMockData,
   });
-  const { data: bookmarks = [] } = useQuery({
-    ...bookmarksQuery(repoPath!),
-    enabled: isLive,
-  });
-  const { data: liveLogEntries = [] } = useQuery({
-    ...logQuery(repoPath!),
-    enabled: isLive,
-  });
+  const repos = useMockData ? watchedRepos : liveRepos;
 
-  const logEntries = useMockData ? mockLogEntries : liveLogEntries;
+  const isLive = !useMockData && !!activeRepoPath;
+  const { data: liveBranches = [] } = useQuery({
+    ...branchesQuery(activeRepoPath!),
+    enabled: isLive,
+  });
+  const branches = useMockData ? mockBranches : liveBranches;
 
-  async function openRepoDialog() {
+  const addRepoMutation = useAddRepo();
+
+  const activeRepo = repos.find((r) => r.meta.path === activeRepoPath);
+
+  async function handleAddRepo() {
     if (useMockData) {
       setUseMockData(false);
-      setAppRepoPath(null);
-      setSelectedRevision(null);
+      setActiveRepo(null);
+      setSelectedBranch(null);
     }
     const selected = await open({
       directory: true,
       multiple: false,
-      title: "Select JJ Repository",
+      title: "Select Git Repository",
     });
     if (selected) {
-      const canonical = await setRepoPath(selected as string);
-      setAppRepoPath(canonical);
-      setSelectedRevision(null);
+      const meta = await addRepoMutation.mutateAsync(selected as string);
+      setActiveRepo(meta.path);
+      setSelectedBranch(null);
     }
   }
 
-  function handleSelect(rev: string) {
-    setSelectedRevision(rev);
+  function handleSelectBranch(name: string) {
+    setSelectedBranch(name);
   }
+
+  function handleSelectRepo(path: string) {
+    setActiveRepo(path);
+    setSelectedBranch(null);
+  }
+
+  // Mock log for recent commits section
+  const recentCommits = useMockData ? mockGitLog : [];
 
   return (
     <aside className="w-72 h-full bg-surface border-r border-border flex flex-col overflow-hidden">
-      {/* Header */}
+      {/* Repo Switcher */}
       <div className="p-4 border-b border-border">
-        <button
-          onClick={openRepoDialog}
-          className="w-full px-3 py-2 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          {repoPath ? "Change Repo" : "Select Repository"}
-        </button>
-        {repoPath && (
-          <p className="mt-2 text-xs text-text-muted truncate" title={repoPath}>
-            {repoPath}
+        <div className="flex items-center gap-2 mb-2">
+          <select
+            value={activeRepoPath ?? ""}
+            onChange={(e) => handleSelectRepo(e.target.value)}
+            className="flex-1 bg-bg border border-border rounded-md text-sm text-text px-2 py-1.5 focus:outline-none focus:border-accent truncate"
+          >
+            <option value="" disabled>
+              Select a repo...
+            </option>
+            {repos.map((r) => (
+              <option key={r.meta.path} value={r.meta.path}>
+                {r.has_any_attention ? "\u25CF " : ""}
+                {r.meta.display_name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleAddRepo}
+            className="px-2 py-1.5 bg-accent hover:bg-accent-hover text-white text-sm font-medium rounded-md transition-colors shrink-0"
+            title="Add repository"
+          >
+            +
+          </button>
+        </div>
+        {activeRepo && (
+          <p
+            className="text-xs text-text-muted truncate"
+            title={activeRepo.meta.path}
+          >
+            {activeRepo.meta.path}
+            {activeRepo.meta.has_graphite && (
+              <span className="ml-1 text-accent">(Graphite)</span>
+            )}
           </p>
         )}
       </div>
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
-        {repoPath && (
+        {activeRepoPath && (
           <>
-            {/* Workspaces */}
-            {workspaces.length > 0 && (
-              <div className="p-3">
-                <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
-                  Workspaces
-                </h3>
-                {workspaces.map((ws) => (
-                  <button
-                    key={ws.change_id}
-                    onClick={() => handleSelect(ws.change_id)}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors mb-0.5 ${
-                      selectedRevision === ws.change_id
-                        ? "bg-accent/20 text-accent-hover"
-                        : "text-text hover:bg-surface-hover"
-                    }`}
-                  >
-                    <span className="font-mono text-xs">{ws.name}</span>
-                    <span className="block text-xs text-text-muted font-mono">
-                      {ws.change_id.slice(0, 8)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Branches */}
+            <div className="p-3">
+              <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+                Branches
+              </h3>
+              {branches.map((branch) => {
+                const needsAttention =
+                  activeRepo?.branch_statuses[branch.name] ?? false;
+                const isBase = activeRepo?.meta.base_branch === branch.name;
 
-            {/* Bookmarks */}
-            {bookmarks.length > 0 && (
-              <div className="p-3 border-t border-border">
-                <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
-                  Bookmarks
-                </h3>
-                {bookmarks.map((bm) => (
+                return (
                   <button
-                    key={bm.change_id}
-                    onClick={() => handleSelect(bm.change_id)}
+                    key={branch.name}
+                    onClick={() => handleSelectBranch(branch.name)}
                     className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors mb-0.5 ${
-                      selectedRevision === bm.change_id
+                      selectedBranch === branch.name
                         ? "bg-accent/20 text-accent-hover"
                         : "text-text hover:bg-surface-hover"
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="inline-block w-2 h-2 rounded-full bg-success shrink-0" />
-                      <span className="font-medium truncate">{bm.name}</span>
-                    </div>
-                    {bm.description && (
-                      <p className="text-xs text-text-muted mt-0.5 truncate pl-4">
-                        {bm.description}
-                      </p>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Log */}
-            {logEntries.length > 0 && (
-              <div className="p-3 border-t border-border">
-                <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
-                  Recent Changes
-                </h3>
-                {logEntries.map((entry) => (
-                  <button
-                    key={entry.change_id}
-                    onClick={() => handleSelect(entry.change_id)}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors mb-0.5 ${
-                      selectedRevision === entry.change_id
-                        ? "bg-accent/20 text-accent-hover"
-                        : "text-text hover:bg-surface-hover"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {entry.is_working_copy && (
-                        <span className="text-accent font-bold">@</span>
+                      {needsAttention && (
+                        <span className="w-2 h-2 rounded-full bg-warning shrink-0" />
                       )}
-                      {entry.has_conflict && (
-                        <span className="text-danger text-xs">&#x26A0;</span>
+                      {branch.is_current && (
+                        <span className="text-accent font-bold text-xs">*</span>
                       )}
-                      <span className="font-mono text-xs text-text-muted">
-                        {entry.change_id.slice(0, 8)}
+                      <span className="font-medium truncate">
+                        {branch.name}
                       </span>
+                      {isBase && (
+                        <span className="text-xs text-text-muted">(base)</span>
+                      )}
                     </div>
-                    <p
-                      className={`text-xs truncate mt-0.5 ${
-                        entry.description
-                          ? "text-text"
-                          : "text-text-muted italic"
-                      }`}
-                    >
-                      {entry.description || "(no description)"}
+                    {!isBase &&
+                      (branch.ahead_count > 0 || branch.behind_count > 0) && (
+                        <div className="flex items-center gap-2 mt-0.5 pl-4 text-xs text-text-muted">
+                          {branch.ahead_count > 0 && (
+                            <span className="text-success">
+                              +{branch.ahead_count}
+                            </span>
+                          )}
+                          {branch.behind_count > 0 && (
+                            <span className="text-danger">
+                              -{branch.behind_count}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Recent Commits (for selected branch) */}
+            {selectedBranch && recentCommits.length > 0 && (
+              <div className="p-3 border-t border-border">
+                <h3 className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">
+                  Recent Commits
+                </h3>
+                {recentCommits.map((entry) => (
+                  <div
+                    key={entry.commit_id}
+                    className="px-3 py-2 text-sm mb-0.5"
+                  >
+                    <p className="text-xs text-text truncate">
+                      {entry.description}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-text-muted font-mono">
+                        {entry.commit_id.slice(0, 7)}
+                      </span>
                       <span className="text-xs text-text-muted">
                         {entry.timestamp}
                       </span>
-                      {entry.bookmarks.map((bm) => (
-                        <span
-                          key={bm}
-                          className="text-xs bg-accent/20 text-accent px-1.5 py-0.5 rounded"
-                        >
-                          {bm}
-                        </span>
-                      ))}
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
