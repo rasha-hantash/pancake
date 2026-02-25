@@ -1,3 +1,5 @@
+// ── Legacy jj types (preserved for future jj support) ──
+
 export interface Bookmark {
   name: string;
   change_id: string;
@@ -34,6 +36,54 @@ export interface ConflictFile {
   content: string;
   marker_lines: number[];
 }
+
+// ── Git types ──
+
+export type VcsBackend = "Git" | "Jj";
+
+export interface Branch {
+  name: string;
+  commit_hash: string;
+  is_current: boolean;
+  ahead_count: number;
+  behind_count: number;
+}
+
+export interface GitLogEntry {
+  commit_id: string;
+  author: string;
+  timestamp: string;
+  description: string;
+  branches: string[];
+}
+
+export interface GitDiffResult {
+  branch: string;
+  description: string;
+  patch: string;
+  files_changed: string[];
+}
+
+export interface RepoMeta {
+  path: string;
+  display_name: string;
+  vcs: VcsBackend;
+  has_graphite: boolean;
+  base_branch: string | null;
+}
+
+export interface RepoWithStatus {
+  meta: RepoMeta;
+  has_any_attention: boolean;
+  branch_statuses: Record<string, boolean>;
+}
+
+export interface BranchStatus {
+  needs_attention: boolean;
+  tip_commit: string;
+}
+
+// ── Comment types (VCS-agnostic) ──
 
 export interface Comment {
   id: string;

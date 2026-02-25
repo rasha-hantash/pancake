@@ -6,6 +6,89 @@ import {
 import * as api from "./tauri";
 import type { Comment } from "./types";
 
+// ── Git queries ──
+
+export function reposQuery() {
+  return queryOptions({
+    queryKey: ["repos"],
+    queryFn: () => api.listRepos(),
+  });
+}
+
+export function branchesQuery(repoPath: string) {
+  return queryOptions({
+    queryKey: ["branches", repoPath],
+    queryFn: () => api.gitListBranches(repoPath),
+    enabled: !!repoPath,
+  });
+}
+
+export function gitLogQuery(
+  repoPath: string,
+  branch: string,
+  baseOverride?: string,
+) {
+  return queryOptions({
+    queryKey: ["git-log", repoPath, branch, baseOverride],
+    queryFn: () => api.gitGetLog(repoPath, branch, baseOverride),
+    enabled: !!repoPath && !!branch,
+  });
+}
+
+export function gitDiffQuery(
+  repoPath: string,
+  branch: string,
+  baseOverride?: string,
+) {
+  return queryOptions({
+    queryKey: ["git-diff", repoPath, branch, baseOverride],
+    queryFn: () => api.gitGetDiff(repoPath, branch, baseOverride),
+    enabled: !!repoPath && !!branch,
+  });
+}
+
+export function branchStatusQuery(repoPath: string, branch: string) {
+  return queryOptions({
+    queryKey: ["branch-status", repoPath, branch],
+    queryFn: () => api.getBranchStatus(repoPath, branch),
+    enabled: !!repoPath && !!branch,
+  });
+}
+
+export function useMarkReviewed() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ repoPath, branch }: { repoPath: string; branch: string }) =>
+      api.markReviewed(repoPath, branch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["repos"] });
+      queryClient.invalidateQueries({ queryKey: ["branch-status"] });
+    },
+  });
+}
+
+export function useAddRepo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (path: string) => api.addRepo(path),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["repos"] });
+    },
+  });
+}
+
+export function useRemoveRepo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (path: string) => api.removeRepo(path),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["repos"] });
+    },
+  });
+}
+
+// ── Legacy jj queries ──
+
 export function bookmarksQuery(repoPath: string) {
   return queryOptions({
     queryKey: ["bookmarks", repoPath],
@@ -45,6 +128,8 @@ export function conflictsQuery(repoPath: string, revision: string) {
     enabled: !!repoPath && !!revision,
   });
 }
+
+// ── Comment queries ──
 
 export function commentsQuery(repoPath: string, revision: string) {
   return queryOptions({

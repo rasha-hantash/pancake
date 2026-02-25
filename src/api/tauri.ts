@@ -7,7 +7,81 @@ import type {
   ConflictFile,
   Comment,
   AgentExport,
+  RepoMeta,
+  RepoWithStatus,
+  Branch,
+  GitLogEntry,
+  GitDiffResult,
+  BranchStatus,
 } from "./types";
+
+// ── Multi-repo commands ──
+
+export async function addRepo(path: string): Promise<RepoMeta> {
+  return invoke<RepoMeta>("add_repo", { path });
+}
+
+export async function removeRepo(path: string): Promise<void> {
+  return invoke<void>("remove_repo", { path });
+}
+
+export async function listRepos(): Promise<RepoWithStatus[]> {
+  return invoke<RepoWithStatus[]>("list_repos");
+}
+
+export async function setActiveRepo(path: string): Promise<void> {
+  return invoke<void>("set_active_repo", { path });
+}
+
+// ── Git commands ──
+
+export async function gitListBranches(repoPath: string): Promise<Branch[]> {
+  return invoke<Branch[]>("git_list_branches", { repoPath });
+}
+
+export async function gitDetectBaseBranch(repoPath: string): Promise<string> {
+  return invoke<string>("git_detect_base_branch", { repoPath });
+}
+
+export async function gitGetLog(
+  repoPath: string,
+  branch: string,
+  baseOverride?: string,
+): Promise<GitLogEntry[]> {
+  return invoke<GitLogEntry[]>("git_get_log", {
+    repoPath,
+    branch,
+    baseOverride,
+  });
+}
+
+export async function gitGetDiff(
+  repoPath: string,
+  branch: string,
+  baseOverride?: string,
+): Promise<GitDiffResult> {
+  return invoke<GitDiffResult>("git_get_diff", {
+    repoPath,
+    branch,
+    baseOverride,
+  });
+}
+
+export async function getBranchStatus(
+  repoPath: string,
+  branch: string,
+): Promise<BranchStatus> {
+  return invoke<BranchStatus>("get_branch_status", { repoPath, branch });
+}
+
+export async function markReviewed(
+  repoPath: string,
+  branch: string,
+): Promise<void> {
+  return invoke<void>("mark_reviewed", { repoPath, branch });
+}
+
+// ── Legacy jj commands ──
 
 export async function setRepoPath(path: string): Promise<string> {
   return invoke<string>("set_repo_path", { path });
@@ -42,6 +116,8 @@ export async function getConflicts(
 ): Promise<ConflictFile[]> {
   return invoke<ConflictFile[]>("get_conflicts", { repoPath, revision });
 }
+
+// ── Comment commands ──
 
 export async function saveComment(
   repoPath: string,
