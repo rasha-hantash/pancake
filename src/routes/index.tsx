@@ -36,7 +36,11 @@ function IndexComponent() {
 
   const isLive = !useMockData && !!activeRepoPath && !!selectedBranch;
 
-  const { data: diff } = useQuery({
+  const {
+    data: diff,
+    isLoading: diffLoading,
+    error: diffError,
+  } = useQuery({
     ...gitDiffQuery(
       activeRepoPath!,
       selectedBranch!,
@@ -121,6 +125,20 @@ function IndexComponent() {
         ) : !selectedBranch ? (
           <div className="flex-1 flex items-center justify-center text-text-muted text-sm">
             Select a branch from the sidebar
+          </div>
+        ) : diffLoading && !useMockData ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3">
+            <div className="w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-text-muted">Loading diff...</span>
+          </div>
+        ) : diffError && !useMockData ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="p-4 bg-danger/10 border border-danger/30 rounded-md max-w-md text-center">
+              <p className="text-sm font-medium text-danger mb-1">
+                Failed to load diff
+              </p>
+              <p className="text-xs text-text-muted">{String(diffError)}</p>
+            </div>
           </div>
         ) : (
           <DiffViewer

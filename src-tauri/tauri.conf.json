@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Pancake - JJ Diff Reviewer",
+        "title": "Pancake - Local PR Reviewer",
         "width": 1400,
         "height": 900,
         "minWidth": 800,

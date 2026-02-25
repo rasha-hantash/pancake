@@ -36,15 +36,6 @@ pub struct Stack {
     pub entries: Vec<StackEntry>,
 }
 
-// ── Detection ──
-
-pub fn is_graphite_repo(repo_path: &str) -> bool {
-    Path::new(repo_path)
-        .join(".git")
-        .join(".graphite_repo_config")
-        .exists()
-}
-
 pub fn read_graphite_config(repo_path: &str) -> Result<GraphiteConfig, String> {
     let config_path = Path::new(repo_path)
         .join(".git")

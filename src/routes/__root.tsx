@@ -36,12 +36,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 );
 
 function RootComponent() {
-  const [useMockData, setUseMockData] = useState(true);
+  const startWithMock =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).has("mock");
+
+  const [useMockData, setUseMockData] = useState(startWithMock);
   const [activeRepoPath, setActiveRepoPath] = useState<string | null>(
-    useMockData ? mockRepos[0].meta.path : null,
+    startWithMock ? mockRepos[0].meta.path : null,
   );
   const [selectedBranch, setSelectedBranch] = useState<string | null>(
-    useMockData ? mockBranches[1].name : null,
+    startWithMock ? mockBranches[1].name : null,
   );
   const [diffBaseOverride, setDiffBaseOverride] = useState<string | null>(null);
 

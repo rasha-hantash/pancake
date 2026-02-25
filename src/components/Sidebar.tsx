@@ -40,7 +40,7 @@ export function Sidebar() {
   const repos = useMockData ? watchedRepos : liveRepos;
 
   const isLive = !useMockData && !!activeRepoPath;
-  const { data: liveBranches = [] } = useQuery({
+  const { data: liveBranches = [], isLoading: branchesLoading } = useQuery({
     ...branchesQuery(activeRepoPath!),
     enabled: isLive,
   });
@@ -217,7 +217,15 @@ export function Sidebar() {
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
-        {activeRepoPath && (
+        {activeRepoPath && branchesLoading && !useMockData && (
+          <div className="flex items-center justify-center py-8">
+            <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+            <span className="ml-2 text-xs text-text-muted">
+              Loading branches...
+            </span>
+          </div>
+        )}
+        {activeRepoPath && (!branchesLoading || useMockData) && (
           <>
             {/* Graphite Stacks */}
             {isGraphite && stacks.length > 0 && (
