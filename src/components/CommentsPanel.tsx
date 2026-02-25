@@ -82,7 +82,7 @@ export function CommentsPanel({ comments: propComments }: CommentsPanelProps) {
   }
 
   return (
-    <aside className="w-80 h-full bg-surface border-l border-border flex flex-col overflow-hidden relative">
+    <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="p-4 border-b border-border flex items-center justify-between">
         <div>
@@ -199,6 +199,6 @@ export function CommentsPanel({ comments: propComments }: CommentsPanelProps) {
           ))
         )}
       </div>
-    </aside>
+    </div>
   );
 }

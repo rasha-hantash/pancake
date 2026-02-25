@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Sidebar } from "../components/Sidebar";
 import { DiffViewer } from "../components/DiffViewer";
 import { CommentsPanel } from "../components/CommentsPanel";
+import { ClaudePanel } from "../components/ClaudePanel";
 import { useAppContext } from "./__root";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -28,6 +29,8 @@ function IndexComponent() {
     useMockData,
     watchedRepos,
   } = useAppContext();
+
+  const [rightTab, setRightTab] = useState<"comments" | "claude">("comments");
 
   const activeRepo = watchedRepos.find((r) => r.meta.path === activeRepoPath);
 
@@ -129,7 +132,38 @@ function IndexComponent() {
           />
         )}
       </main>
-      <CommentsPanel comments={useMockData ? mockComments : undefined} />
+      <aside className="w-80 h-full bg-surface border-l border-border flex flex-col overflow-hidden">
+        {/* Tabs */}
+        <div className="flex border-b border-border">
+          <button
+            onClick={() => setRightTab("comments")}
+            className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+              rightTab === "comments"
+                ? "text-accent border-b-2 border-accent"
+                : "text-text-muted hover:text-text"
+            }`}
+          >
+            Comments
+          </button>
+          <button
+            onClick={() => setRightTab("claude")}
+            className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+              rightTab === "claude"
+                ? "text-accent border-b-2 border-accent"
+                : "text-text-muted hover:text-text"
+            }`}
+          >
+            Claude
+          </button>
+        </div>
+
+        {/* Tab content */}
+        {rightTab === "comments" ? (
+          <CommentsPanel comments={useMockData ? mockComments : undefined} />
+        ) : (
+          <ClaudePanel comments={activeComments} />
+        )}
+      </aside>
     </>
   );
 }
