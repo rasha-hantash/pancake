@@ -1,9 +1,17 @@
 import { useMemo, useState, useCallback } from "react";
-import type { Comment } from "../api/types";
+import type { Comment, StackEntry } from "../api/types";
+
+interface StackNavInfo {
+  entries: StackEntry[];
+  currentIndex: number;
+  parentBranch: string;
+}
 
 interface DiffViewerProps {
   patch: string;
   comments: Comment[];
+  stackNav?: StackNavInfo;
+  onNavigateStack?: (branchName: string, parentBranch: string) => void;
   onAddComment?: (
     filePath: string,
     line: number,
@@ -206,7 +214,13 @@ function InlineCommentForm({ onSubmit, onCancel }: InlineCommentFormProps) {
   );
 }
 
-export function DiffViewer({ patch, comments, onAddComment }: DiffViewerProps) {
+export function DiffViewer({
+  patch,
+  comments,
+  stackNav,
+  onNavigateStack,
+  onAddComment,
+}: DiffViewerProps) {
   const files = useMemo(() => parsePatch(patch), [patch]);
   const [commentForm, setCommentForm] = useState<{
     file: string;
@@ -242,6 +256,50 @@ export function DiffViewer({ patch, comments, onAddComment }: DiffViewerProps) {
 
   return (
     <div className="flex-1 overflow-auto bg-bg">
+      {/* Stack navigation header */}
+      {stackNav && (
+        <div className="sticky top-0 z-20 flex items-center justify-between px-4 py-2 bg-surface border-b border-border">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-text">
+              {stackNav.entries[stackNav.currentIndex]?.branch_name}
+            </span>
+            <span className="text-xs text-text-muted">
+              vs {stackNav.parentBranch}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-muted">
+              {stackNav.currentIndex + 1} of {stackNav.entries.length} in stack
+            </span>
+            <button
+              onClick={() => {
+                const prev = stackNav.entries[stackNav.currentIndex - 1];
+                if (prev && onNavigateStack) {
+                  onNavigateStack(prev.branch_name, prev.meta.parent_branch);
+                }
+              }}
+              disabled={stackNav.currentIndex === 0}
+              className="px-2 py-1 text-xs bg-bg border border-border rounded hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="Previous in stack"
+            >
+              &#x25B2; Up
+            </button>
+            <button
+              onClick={() => {
+                const next = stackNav.entries[stackNav.currentIndex + 1];
+                if (next && onNavigateStack) {
+                  onNavigateStack(next.branch_name, next.meta.parent_branch);
+                }
+              }}
+              disabled={stackNav.currentIndex === stackNav.entries.length - 1}
+              className="px-2 py-1 text-xs bg-bg border border-border rounded hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              title="Next in stack"
+            >
+              &#x25BC; Down
+            </button>
+          </div>
+        </div>
+      )}
       {files.map((file, fi) => {
         const fileComments = commentsByFile[file.fileName] ?? [];
 

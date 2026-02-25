@@ -47,6 +47,22 @@ export function gitDiffQuery(
   });
 }
 
+export function stacksQuery(repoPath: string) {
+  return queryOptions({
+    queryKey: ["stacks", repoPath],
+    queryFn: () => api.getStacks(repoPath),
+    enabled: !!repoPath,
+  });
+}
+
+export function stackDiffQuery(repoPath: string, branch: string) {
+  return queryOptions({
+    queryKey: ["stack-diff", repoPath, branch],
+    queryFn: () => api.getStackDiff(repoPath, branch),
+    enabled: !!repoPath && !!branch,
+  });
+}
+
 export function branchStatusQuery(repoPath: string, branch: string) {
   return queryOptions({
     queryKey: ["branch-status", repoPath, branch],

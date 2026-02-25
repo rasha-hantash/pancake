@@ -4,6 +4,7 @@ import type {
   GitDiffResult,
   RepoWithStatus,
   Comment,
+  Stack,
 } from "../api/types";
 
 // ── Mock Repos ──
@@ -218,5 +219,41 @@ export const mockComments: Comment[] = [
     severity: "note",
     created_at: "2026-02-23T10:48:00Z",
     resolved: true,
+  },
+];
+
+// ── Mock Graphite Stacks ──
+
+export const mockStacks: Stack[] = [
+  {
+    id: "feat/add-validation",
+    entries: [
+      {
+        branch_name: "feat/add-validation",
+        meta: {
+          parent_branch: "main",
+          parent_revision: "a1b2c3d4e5f6",
+          pr_number: 42,
+          pr_title: "Add input validation for registration",
+          pr_state: "OPEN",
+          pr_url: "https://github.com/example/pancake/pull/42",
+        },
+        commit_hash: "d4e5f6a",
+        needs_attention: true,
+      },
+      {
+        branch_name: "feat/refactor-api",
+        meta: {
+          parent_branch: "feat/add-validation",
+          parent_revision: "d4e5f6a7b8c9",
+          pr_number: 43,
+          pr_title: "Refactor API client error handling",
+          pr_state: "OPEN",
+          pr_url: "https://github.com/example/pancake/pull/43",
+        },
+        commit_hash: "b7c8d9e",
+        needs_attention: true,
+      },
+    ],
   },
 ];

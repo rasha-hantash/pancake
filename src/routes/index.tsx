@@ -1,11 +1,17 @@
+import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Sidebar } from "../components/Sidebar";
 import { DiffViewer } from "../components/DiffViewer";
 import { CommentsPanel } from "../components/CommentsPanel";
 import { useAppContext } from "./__root";
 import { useQuery } from "@tanstack/react-query";
-import { gitDiffQuery, commentsQuery, useSaveComment } from "../api/queries";
-import { mockGitDiff, mockComments } from "../data/mockData";
+import {
+  gitDiffQuery,
+  commentsQuery,
+  stacksQuery,
+  useSaveComment,
+} from "../api/queries";
+import { mockGitDiff, mockComments, mockStacks } from "../data/mockData";
 import type { Comment } from "../api/types";
 
 export const Route = createFileRoute("/")({
@@ -13,8 +19,17 @@ export const Route = createFileRoute("/")({
 });
 
 function IndexComponent() {
-  const { activeRepoPath, selectedBranch, diffBaseOverride, useMockData } =
-    useAppContext();
+  const {
+    activeRepoPath,
+    selectedBranch,
+    diffBaseOverride,
+    setSelectedBranch,
+    setDiffBaseOverride,
+    useMockData,
+    watchedRepos,
+  } = useAppContext();
+
+  const activeRepo = watchedRepos.find((r) => r.meta.path === activeRepoPath);
 
   const isLive = !useMockData && !!activeRepoPath && !!selectedBranch;
 
@@ -32,6 +47,12 @@ function IndexComponent() {
     enabled: isLive,
   });
 
+  const { data: liveStacks = [] } = useQuery({
+    ...stacksQuery(activeRepoPath!),
+    enabled: isLive && (activeRepo?.meta.has_graphite ?? false),
+  });
+  const stacks = useMockData ? mockStacks : liveStacks;
+
   const activeDiff = useMockData ? mockGitDiff : diff;
   const activeComments = useMockData ? mockComments : (liveComments ?? []);
 
@@ -39,6 +60,25 @@ function IndexComponent() {
     activeRepoPath ?? "",
     selectedBranch ?? "",
   );
+
+  // Find current stack navigation info
+  const stackNav = useMemo(() => {
+    if (!selectedBranch) return undefined;
+    for (const stack of stacks) {
+      const idx = stack.entries.findIndex(
+        (e) => e.branch_name === selectedBranch,
+      );
+      if (idx !== -1) {
+        return {
+          entries: stack.entries,
+          currentIndex: idx,
+          parentBranch:
+            diffBaseOverride ?? stack.entries[idx].meta.parent_branch,
+        };
+      }
+    }
+    return undefined;
+  }, [stacks, selectedBranch, diffBaseOverride]);
 
   function handleAddComment(
     filePath: string,
@@ -62,6 +102,11 @@ function IndexComponent() {
     saveMutation.mutate(comment);
   }
 
+  function handleNavigateStack(branchName: string, parentBranch: string) {
+    setSelectedBranch(branchName);
+    setDiffBaseOverride(parentBranch);
+  }
+
   return (
     <>
       <Sidebar />
@@ -78,6 +123,8 @@ function IndexComponent() {
           <DiffViewer
             patch={activeDiff?.patch ?? ""}
             comments={activeComments}
+            stackNav={stackNav}
+            onNavigateStack={handleNavigateStack}
             onAddComment={handleAddComment}
           />
         )}

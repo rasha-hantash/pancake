@@ -13,6 +13,7 @@ import type {
   GitLogEntry,
   GitDiffResult,
   BranchStatus,
+  Stack,
 } from "./types";
 
 // ── Multi-repo commands ──
@@ -79,6 +80,19 @@ export async function markReviewed(
   branch: string,
 ): Promise<void> {
   return invoke<void>("mark_reviewed", { repoPath, branch });
+}
+
+// ── Graphite commands ──
+
+export async function getStacks(repoPath: string): Promise<Stack[]> {
+  return invoke<Stack[]>("get_stacks", { repoPath });
+}
+
+export async function getStackDiff(
+  repoPath: string,
+  branch: string,
+): Promise<GitDiffResult> {
+  return invoke<GitDiffResult>("get_stack_diff", { repoPath, branch });
 }
 
 // ── Legacy jj commands ──

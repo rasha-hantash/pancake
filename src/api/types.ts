@@ -83,6 +83,29 @@ export interface BranchStatus {
   tip_commit: string;
 }
 
+// ── Graphite types ──
+
+export interface GraphiteBranchMeta {
+  parent_branch: string;
+  parent_revision: string;
+  pr_number: number | null;
+  pr_title: string | null;
+  pr_state: string | null;
+  pr_url: string | null;
+}
+
+export interface StackEntry {
+  branch_name: string;
+  meta: GraphiteBranchMeta;
+  commit_hash: string;
+  needs_attention: boolean;
+}
+
+export interface Stack {
+  id: string;
+  entries: StackEntry[];
+}
+
 // ── Comment types (VCS-agnostic) ──
 
 export interface Comment {
