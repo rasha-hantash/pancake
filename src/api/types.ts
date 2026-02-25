@@ -106,6 +106,14 @@ export interface Stack {
   entries: StackEntry[];
 }
 
+// ── Claude API types ──
+
+export interface ClaudeResponse {
+  proposed_diff: string;
+  explanation: string;
+  model: string;
+}
+
 // ── Comment types (VCS-agnostic) ──
 
 export interface Comment {

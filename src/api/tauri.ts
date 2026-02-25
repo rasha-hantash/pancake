@@ -14,6 +14,7 @@ import type {
   GitDiffResult,
   BranchStatus,
   Stack,
+  ClaudeResponse,
 } from "./types";
 
 // ── Multi-repo commands ──
@@ -93,6 +94,35 @@ export async function getStackDiff(
   branch: string,
 ): Promise<GitDiffResult> {
   return invoke<GitDiffResult>("get_stack_diff", { repoPath, branch });
+}
+
+// ── Claude API commands ──
+
+export async function setClaudeKey(key: string): Promise<void> {
+  return invoke<void>("set_claude_key", { key });
+}
+
+export async function getClaudeKey(): Promise<string | null> {
+  return invoke<string | null>("get_claude_key");
+}
+
+export async function callClaude(
+  repoPath: string,
+  branch: string,
+  baseOverride?: string,
+): Promise<ClaudeResponse> {
+  return invoke<ClaudeResponse>("call_claude", {
+    repoPath,
+    branch,
+    baseOverride,
+  });
+}
+
+export async function applyProposedChanges(
+  repoPath: string,
+  patch: string,
+): Promise<void> {
+  return invoke<void>("apply_proposed_changes", { repoPath, patch });
 }
 
 // ── Legacy jj commands ──

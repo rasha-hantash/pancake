@@ -103,6 +103,30 @@ export function useRemoveRepo() {
   });
 }
 
+// ── Claude API mutations ──
+
+export function useCallClaude(
+  repoPath: string,
+  branch: string,
+  baseOverride?: string,
+) {
+  return useMutation({
+    mutationFn: () => api.callClaude(repoPath, branch, baseOverride),
+  });
+}
+
+export function useApplyProposedChanges(repoPath: string, branch: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: string) => api.applyProposedChanges(repoPath, patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["git-diff", repoPath, branch],
+      });
+    },
+  });
+}
+
 // ── Legacy jj queries ──
 
 export function bookmarksQuery(repoPath: string) {

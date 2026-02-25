@@ -42,6 +42,15 @@ pub struct AgentExport {
     pub summary: String,
 }
 
+// ── Claude API Types ──
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClaudeResponse {
+    pub proposed_diff: String,
+    pub explanation: String,
+    pub model: String,
+}
+
 // ── Multi-Repo Types ──
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -393,6 +402,219 @@ fn get_stack_diff(
     git::get_diff(&repo_path, &branch, &meta.parent_branch)
 }
 
+// ── Claude API Helpers ──
+
+fn claude_key_path() -> PathBuf {
+    let data_dir = dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("pancake");
+    fs::create_dir_all(&data_dir).ok();
+    data_dir.join("claude_key")
+}
+
+fn load_claude_key() -> Result<Option<String>, String> {
+    let path = claude_key_path();
+    if path.exists() {
+        let key = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        let trimmed = key.trim().to_string();
+        if trimmed.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(trimmed))
+        }
+    } else {
+        Ok(None)
+    }
+}
+
+fn extract_diff_block(text: &str) -> String {
+    // Look for ```diff ... ``` block
+    if let Some(start) = text.find("```diff\n") {
+        let content_start = start + "```diff\n".len();
+        if let Some(end) = text[content_start..].find("```") {
+            return text[content_start..content_start + end].trim().to_string();
+        }
+    }
+    // Fallback: look for generic code block containing a diff
+    if let Some(start) = text.find("```\n") {
+        let content_start = start + "```\n".len();
+        if let Some(end) = text[content_start..].find("```") {
+            let candidate = text[content_start..content_start + end].trim();
+            if candidate.starts_with("diff --git") || candidate.starts_with("---") {
+                return candidate.to_string();
+            }
+        }
+    }
+    String::new()
+}
+
+fn extract_explanation(text: &str) -> String {
+    // Everything before the first code block
+    if let Some(start) = text.find("```") {
+        text[..start].trim().to_string()
+    } else {
+        text.trim().to_string()
+    }
+}
+
+// ── Claude API Tauri Commands ──
+
+#[tauri::command]
+fn set_claude_key(key: String) -> Result<(), String> {
+    let path = claude_key_path();
+    fs::write(&path, key.trim()).map_err(|e| format!("Failed to save API key: {}", e))
+}
+
+#[tauri::command]
+fn get_claude_key() -> Result<Option<String>, String> {
+    load_claude_key()
+}
+
+#[tauri::command]
+async fn call_claude(
+    repo_path: String,
+    branch: String,
+    base_override: Option<String>,
+) -> Result<ClaudeResponse, String> {
+    let key = load_claude_key()?
+        .ok_or_else(|| "No Claude API key configured".to_string())?;
+
+    // Get diff
+    let base = base_override.unwrap_or_else(|| {
+        git::detect_base_branch(&repo_path).unwrap_or_else(|_| "main".to_string())
+    });
+    let diff = git::get_diff(&repo_path, &branch, &base)?;
+
+    // Get unresolved comments
+    let store = load_comments(&repo_path);
+    let comments: Vec<&Comment> = store
+        .comments
+        .iter()
+        .filter(|c| c.revision == branch && !c.resolved)
+        .collect();
+
+    if comments.is_empty() {
+        return Err("No unresolved comments to resolve".to_string());
+    }
+
+    // Build prompt
+    let system = "You are a senior software engineer reviewing code. Given a git diff and \
+        review comments, produce a unified diff patch that addresses ALL comments. \
+        The patch must be directly applicable with `git apply`.\n\n\
+        Output format:\n\
+        1. Provide a brief explanation of the changes you're making.\n\
+        2. Output the complete unified diff inside a code block marked with ```diff ... ```\n\n\
+        The diff must be a valid unified diff that can be applied with `git apply`. \
+        Only include the changed files — do not reproduce the entire original diff.";
+
+    let mut user_msg = String::new();
+    user_msg.push_str("## Current Diff\n\n```diff\n");
+    user_msg.push_str(&diff.patch);
+    user_msg.push_str("\n```\n\n## Review Comments\n\n");
+
+    for c in &comments {
+        user_msg.push_str(&format!(
+            "- **{}** (`{}`, line {}, side {}): {}\n",
+            c.severity, c.file_path, c.line, c.side, c.body
+        ));
+    }
+
+    user_msg.push_str(
+        "\nPlease produce a unified diff that addresses all the above comments.",
+    );
+
+    // Call Claude API
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "model": "claude-opus-4-6",
+        "max_tokens": 16384,
+        "system": system,
+        "messages": [
+            { "role": "user", "content": user_msg }
+        ]
+    });
+
+    let response = client
+        .post("https://api.anthropic.com/v1/messages")
+        .header("x-api-key", &key)
+        .header("anthropic-version", "2023-06-01")
+        .header("content-type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to call Claude API: {}", e))?;
+
+    let status = response.status();
+    let response_text = response
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read response: {}", e))?;
+
+    if !status.is_success() {
+        return Err(format!("Claude API error ({}): {}", status, response_text));
+    }
+
+    let response_json: serde_json::Value = serde_json::from_str(&response_text)
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    // Extract text from content blocks
+    let content = response_json["content"]
+        .as_array()
+        .ok_or_else(|| "Invalid response: no content array".to_string())?;
+
+    let mut full_text = String::new();
+    for block in content {
+        if block["type"].as_str() == Some("text") {
+            if let Some(text) = block["text"].as_str() {
+                full_text.push_str(text);
+            }
+        }
+    }
+
+    if full_text.is_empty() {
+        return Err("Claude returned an empty response".to_string());
+    }
+
+    let proposed_diff = extract_diff_block(&full_text);
+    let explanation = extract_explanation(&full_text);
+
+    let model = response_json["model"]
+        .as_str()
+        .unwrap_or("claude-opus-4-6")
+        .to_string();
+
+    Ok(ClaudeResponse {
+        proposed_diff,
+        explanation,
+        model,
+    })
+}
+
+#[tauri::command]
+fn apply_proposed_changes(repo_path: String, patch: String) -> Result<(), String> {
+    // Write patch to temp file
+    let temp_file = std::env::temp_dir().join(format!(
+        "pancake_patch_{}.diff",
+        uuid::Uuid::new_v4()
+    ));
+    fs::write(&temp_file, &patch)
+        .map_err(|e| format!("Failed to write temp patch: {}", e))?;
+
+    let temp_path = temp_file.to_string_lossy().to_string();
+
+    // Dry run validation
+    let check = git::run_git(&repo_path, &["apply", "--check", &temp_path]);
+    if let Err(e) = check {
+        fs::remove_file(&temp_file).ok();
+        return Err(format!("Patch validation failed: {}", e));
+    }
+
+    // Apply and stage
+    let result = git::run_git(&repo_path, &["apply", "--index", &temp_path]);
+    fs::remove_file(&temp_file).ok();
+    result.map(|_| ())
+}
+
 // ── Legacy jj Tauri Commands (delegating to vcs::jj) ──
 
 #[tauri::command]
@@ -569,6 +791,11 @@ pub fn run() {
             // Graphite commands
             get_stacks,
             get_stack_diff,
+            // Claude API commands
+            set_claude_key,
+            get_claude_key,
+            call_claude,
+            apply_proposed_changes,
             // Legacy jj commands
             set_repo_path,
             get_repo_path,
