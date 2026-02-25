@@ -1,4 +1,5 @@
 pub mod git;
+pub mod graphite;
 pub mod jj;
 
 use serde::{Deserialize, Serialize};

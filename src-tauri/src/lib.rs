@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::State;
 
-use vcs::{git, jj, Branch, GitDiffResult, GitLogEntry, VcsBackend};
+use vcs::{git, graphite, jj, Branch, GitDiffResult, GitLogEntry, VcsBackend};
 
 // ── Comment Types (VCS-agnostic) ──
 
@@ -367,6 +367,32 @@ fn mark_reviewed(
     Ok(())
 }
 
+// ── Graphite Tauri Commands ──
+
+#[tauri::command]
+fn get_stacks(
+    repo_path: String,
+    state: State<AppState>,
+) -> Result<Vec<graphite::Stack>, String> {
+    let branches = git::list_branches(&repo_path)?;
+    let repos = state.repos.lock().unwrap();
+    let reviewed = repos
+        .get(&repo_path)
+        .map(|m| m.reviewed_commits.clone())
+        .unwrap_or_default();
+    graphite::build_stacks(&repo_path, &branches, &reviewed)
+}
+
+#[tauri::command]
+fn get_stack_diff(
+    repo_path: String,
+    branch: String,
+) -> Result<GitDiffResult, String> {
+    // Read the branch's parent from Graphite metadata
+    let meta = graphite::read_branch_meta(&repo_path, &branch)?;
+    git::get_diff(&repo_path, &branch, &meta.parent_branch)
+}
+
 // ── Legacy jj Tauri Commands (delegating to vcs::jj) ──
 
 #[tauri::command]
@@ -540,6 +566,9 @@ pub fn run() {
             git_get_diff,
             get_branch_status,
             mark_reviewed,
+            // Graphite commands
+            get_stacks,
+            get_stack_diff,
             // Legacy jj commands
             set_repo_path,
             get_repo_path,
